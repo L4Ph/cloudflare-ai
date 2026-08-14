@@ -21,14 +21,7 @@ import type { AiGatewayCredentialsConfig, AiGatewayConfig } from "../utils/creat
  * Includes cache control options from AiGatewayConfig.
  * See {@link https://github.com/googleapis/js-genai/issues/999 | googleapis/js-genai#999}.
  */
-export type GeminiGatewayConfig = AiGatewayCredentialsConfig &
-	AiGatewayConfig & {
-		/**
-		 * BYOK stored-key alias (`cf-aig-byok-alias`). Gemini is credentials /
-		 * provider-passthrough only, so this header is honored.
-		 */
-		byokAlias?: string;
-	};
+export type GeminiGatewayConfig = AiGatewayCredentialsConfig & AiGatewayConfig;
 
 /**
  * Build Gemini client config that routes through AI Gateway.
@@ -73,7 +66,7 @@ function buildGeminiGatewayConfig(config: GeminiGatewayConfig) {
 	if (typeof config.metadata === "object") {
 		headers["cf-aig-metadata"] = JSON.stringify(config.metadata);
 	}
-	if (typeof config.byokAlias === "string") {
+	if (typeof config.byokAlias === "string" && config.byokAlias.length > 0) {
 		headers["cf-aig-byok-alias"] = config.byokAlias;
 	}
 
