@@ -166,8 +166,9 @@ const adapter = createOpenAiChat("gpt-5", {
 });
 ```
 
-`byokAlias` (`cf-aig-byok-alias`) is credentials / REST only. The AI binding
-does not select a non-`default` stored key for third-party models:
+`byokAlias` (`cf-aig-byok-alias`) is credentials / REST only — including
+Gemini (`createGeminiChat` via `httpOptions.headers`). The AI binding does
+not select a non-`default` stored key for third-party models:
 
 ```ts
 const adapter = createOpenAiChat("gpt-5", {

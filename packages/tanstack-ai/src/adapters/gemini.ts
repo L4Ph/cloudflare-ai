@@ -1,14 +1,14 @@
 import {
-	GeminiTextAdapter,
-	GeminiImageAdapter,
-	createGeminiSummarize as createGeminiSummarizeAdapter,
-	GeminiTTSAdapter,
-	GeminiTextModels,
-	GeminiImageModels,
-	GeminiTTSModels,
-	type GeminiTextModel,
-	type GeminiImageModel,
-	type GeminiSummarizeModel,
+  GeminiTextAdapter,
+  GeminiImageAdapter,
+  createGeminiSummarize as createGeminiSummarizeAdapter,
+  GeminiTTSAdapter,
+  GeminiTextModels,
+  GeminiImageModels,
+  GeminiTTSModels,
+  type GeminiTextModel,
+  type GeminiImageModel,
+  type GeminiSummarizeModel,
 } from "@tanstack/ai-gemini";
 
 /** Derived from GeminiTTSModels since @tanstack/ai-gemini doesn't export a GeminiTTSModel type. */
@@ -21,7 +21,14 @@ import type { AiGatewayCredentialsConfig, AiGatewayConfig } from "../utils/creat
  * Includes cache control options from AiGatewayConfig.
  * See {@link https://github.com/googleapis/js-genai/issues/999 | googleapis/js-genai#999}.
  */
-export type GeminiGatewayConfig = AiGatewayCredentialsConfig & AiGatewayConfig;
+export type GeminiGatewayConfig = AiGatewayCredentialsConfig &
+  AiGatewayConfig & {
+    /**
+     * BYOK stored-key alias (`cf-aig-byok-alias`). Gemini is credentials /
+     * provider-passthrough only, so this header is honored.
+     */
+    byokAlias?: string;
+  };
 
 /**
  * Build Gemini client config that routes through AI Gateway.
@@ -34,54 +41,57 @@ export type GeminiGatewayConfig = AiGatewayCredentialsConfig & AiGatewayConfig;
  * Tracking issue: https://github.com/googleapis/js-genai/issues/999
  */
 function buildGeminiGatewayConfig(config: GeminiGatewayConfig) {
-	// Runtime guard: catch binding configs that bypass TypeScript (JS callers, `as any`, etc.)
-	// We integrate with the Gemini SDK via `httpOptions` (baseUrl + headers), which allows
-	// gateway routing and cache control but not request interception. A binding config
-	// requires a custom `fetch` to route through the AI Gateway binding, and the Google
-	// GenAI SDK doesn't support that yet.
-	if ("binding" in config) {
-		throw new Error(
-			"Gemini adapters do not support binding config. " +
-				"The Google GenAI SDK does not support a custom fetch function — " +
-				"only credential-based config ({ accountId, gatewayId }) is supported. " +
-				"See https://github.com/googleapis/js-genai/issues/999",
-		);
-	}
+  // Runtime guard: catch binding configs that bypass TypeScript (JS callers, `as any`, etc.)
+  // We integrate with the Gemini SDK via `httpOptions` (baseUrl + headers), which allows
+  // gateway routing and cache control but not request interception. A binding config
+  // requires a custom `fetch` to route through the AI Gateway binding, and the Google
+  // GenAI SDK doesn't support that yet.
+  if ("binding" in config) {
+    throw new Error(
+      "Gemini adapters do not support binding config. " +
+        "The Google GenAI SDK does not support a custom fetch function — " +
+        "only credential-based config ({ accountId, gatewayId }) is supported. " +
+        "See https://github.com/googleapis/js-genai/issues/999",
+    );
+  }
 
-	const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {};
 
-	if (config.apiKey && config.cfApiKey) {
-		headers["cf-aig-authorization"] = `Bearer ${config.cfApiKey}`;
-	}
+  if (config.apiKey && config.cfApiKey) {
+    headers["cf-aig-authorization"] = `Bearer ${config.cfApiKey}`;
+  }
 
-	if (config.skipCache) {
-		headers["cf-aig-skip-cache"] = "true";
-	}
-	if (typeof config.cacheTtl === "number") {
-		headers["cf-aig-cache-ttl"] = String(config.cacheTtl);
-	}
-	if (typeof config.customCacheKey === "string") {
-		headers["cf-aig-cache-key"] = config.customCacheKey;
-	}
-	if (typeof config.metadata === "object") {
-		headers["cf-aig-metadata"] = JSON.stringify(config.metadata);
-	}
+  if (config.skipCache) {
+    headers["cf-aig-skip-cache"] = "true";
+  }
+  if (typeof config.cacheTtl === "number") {
+    headers["cf-aig-cache-ttl"] = String(config.cacheTtl);
+  }
+  if (typeof config.customCacheKey === "string") {
+    headers["cf-aig-cache-key"] = config.customCacheKey;
+  }
+  if (typeof config.metadata === "object") {
+    headers["cf-aig-metadata"] = JSON.stringify(config.metadata);
+  }
+  if (typeof config.byokAlias === "string") {
+    headers["cf-aig-byok-alias"] = config.byokAlias;
+  }
 
-	const apiKey = config.apiKey ?? config.cfApiKey;
+  const apiKey = config.apiKey ?? config.cfApiKey;
 
-	if (!apiKey) {
-		throw new Error(
-			"If you want to use BYOK or unified billing, you need to pass the Cloudflare AI Gateway API key.",
-		);
-	}
+  if (!apiKey) {
+    throw new Error(
+      "If you want to use BYOK or unified billing, you need to pass the Cloudflare AI Gateway API key.",
+    );
+  }
 
-	return {
-		apiKey,
-		httpOptions: {
-			baseUrl: `https://gateway.ai.cloudflare.com/v1/${config.accountId}/${config.gatewayId}/google-ai-studio`,
-			headers: Object.keys(headers).length > 0 ? headers : undefined,
-		},
-	};
+  return {
+    apiKey,
+    httpOptions: {
+      baseUrl: `https://gateway.ai.cloudflare.com/v1/${config.accountId}/${config.gatewayId}/google-ai-studio`,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    },
+  };
 }
 
 /** Alias for consistency with other providers (AnthropicChatModel, GrokChatModel, etc.) */
@@ -95,10 +105,10 @@ export type GeminiChatModel = GeminiTextModel;
  * @param config Configuration options (credentials only)
  */
 export function createGeminiChat(
-	model: GeminiChatModel,
-	config: GeminiGatewayConfig,
+  model: GeminiChatModel,
+  config: GeminiGatewayConfig,
 ): AnyTextAdapter {
-	return new GeminiTextAdapter(buildGeminiGatewayConfig(config), model);
+  return new GeminiTextAdapter(buildGeminiGatewayConfig(config), model);
 }
 
 /**
@@ -109,7 +119,7 @@ export function createGeminiChat(
  * @param config Configuration options (credentials only)
  */
 export function createGeminiImage(model: GeminiImageModel, config: GeminiGatewayConfig) {
-	return new GeminiImageAdapter(buildGeminiGatewayConfig(config), model);
+  return new GeminiImageAdapter(buildGeminiGatewayConfig(config), model);
 }
 
 /**
@@ -120,11 +130,11 @@ export function createGeminiImage(model: GeminiImageModel, config: GeminiGateway
  * @param config Configuration options (credentials only)
  */
 export function createGeminiSummarize(
-	model: GeminiSummarizeModel,
-	config: GeminiGatewayConfig,
+  model: GeminiSummarizeModel,
+  config: GeminiGatewayConfig,
 ): AnySummarizeAdapter {
-	const { apiKey, httpOptions } = buildGeminiGatewayConfig(config);
-	return createGeminiSummarizeAdapter(apiKey, model, { httpOptions });
+  const { apiKey, httpOptions } = buildGeminiGatewayConfig(config);
+  return createGeminiSummarizeAdapter(apiKey, model, { httpOptions });
 }
 
 /**
@@ -137,14 +147,14 @@ export function createGeminiSummarize(
  * @param config Configuration options (credentials only)
  */
 export function createGeminiTts(model: GeminiTTSModel, config: GeminiGatewayConfig) {
-	return new GeminiTTSAdapter(buildGeminiGatewayConfig(config), model);
+  return new GeminiTTSAdapter(buildGeminiGatewayConfig(config), model);
 }
 
 export {
-	GeminiTextModels,
-	GeminiImageModels,
-	GeminiTTSModels,
-	type GeminiTextModel,
-	type GeminiImageModel,
-	type GeminiSummarizeModel,
+  GeminiTextModels,
+  GeminiImageModels,
+  GeminiTTSModels,
+  type GeminiTextModel,
+  type GeminiImageModel,
+  type GeminiSummarizeModel,
 };

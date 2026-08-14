@@ -239,8 +239,8 @@ const adapter = createOpenAiChat("gpt-4o", {
 `cf-aig-byok-alias` is a provider-passthrough header. The AI binding does not
 honor it for third-party models — only the `default` stored key is consulted
 there. Same option on `createAnthropicChat` / `createGrokChat` /
-`createOpenRouterChat` / `createWorkersAiChat` (gateway REST). Gemini does not
-use `createGatewayFetch`.
+`createOpenRouterChat` / `createWorkersAiChat` (gateway REST) /
+`createGeminiChat` (credentials / `httpOptions.headers`).
 
 ```typescript
 const adapter = createOpenRouterChat("openai/gpt-4o", {
