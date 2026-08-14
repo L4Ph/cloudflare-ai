@@ -63,8 +63,22 @@ export interface AiGatewayConfig {
 	metadata?: Record<string, unknown>;
 }
 
-export type AiGatewayAdapterConfig = (AiGatewayBindingConfig | AiGatewayCredentialsConfig) &
-	AiGatewayConfig;
+/**
+ * Binding configs cannot carry `byokAlias`: `cf-aig-byok-alias` is a
+ * provider-passthrough header and the AI binding does not honor it for
+ * third-party models.
+ */
+export type AiGatewayAdapterConfig =
+	| (AiGatewayBindingConfig & AiGatewayConfig)
+	| (AiGatewayCredentialsConfig &
+			AiGatewayConfig & {
+				/**
+				 * BYOK stored-key alias (`cf-aig-byok-alias`). REST /
+				 * provider-passthrough only.
+				 * See https://developers.cloudflare.com/ai-gateway/configuration/bring-your-own-keys/
+				 */
+				byokAlias?: string;
+			});
 
 // ---------------------------------------------------------------------------
 // Plain Workers AI types (direct binding or REST, no gateway)
@@ -257,6 +271,9 @@ export function createGatewayFetch(
 				: {}),
 			...(config.metadata && typeof config.metadata === "object"
 				? { metadata: config.metadata as GatewayMetadata }
+				: {}),
+			...("gatewayId" in config && typeof config.byokAlias === "string"
+				? { byokAlias: config.byokAlias }
 				: {}),
 		});
 
